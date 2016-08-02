@@ -1,0 +1,25 @@
+{
+  "name": "deduplication_js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dedup.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "@kba/simmetrics": "0.8.12",
+    "csv": "^1.1.0",
+    "describe": "^1.2.0",
+    "lodash": "^4.13.1",
+    "mongodb": "^2.1.21",
+    "should": "^9.0.0"
+  },
+  "devDependencies": {
+    "mocha": "^2.5.3"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "",
+  "license": "ISC"
+}
