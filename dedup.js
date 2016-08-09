@@ -40,28 +40,39 @@ MongoClient.connect(url, function (err, db) {
         //HURRAY!! We are connected. :)
         console.log('Connection established to', url);
 
-
+		//get the necessary collections containing entities and links
         var collection = db.collection('entities');
+        var collectionLinks = db.collection('entitylinks');
 
-//    collection.find({name: 'string'}).toArray(function (err, result) {
-//      if (err) {
-//        console.log(err);
-//      } else if (result.length) {
-//        console.log('Found:', result);
-//      } else {
-//        console.log('No document(s) found with defined "find" criteria!');
-//      }
+		//generate a map with fromEntities as keys and the links as values
+        var links = {};
+        collectionLinks.find({}).toArray(function (err, result) {
+        result.forEach(function (o) {
+        //console.log(o);
+        var k = links[o.fromEntity];
+                if (k == null) {
+                    k = [o];
+                }
+                else {
+                    k.push(o);
+                }
+                links[o.fromEntity] = k;
+            });
+        
+        console.log(Object.keys(links).length);
 
+		//create a map with entity name as key and the according entities as values
+		//only entities with exactly the same name are considered, all others 
+		//will not be detected as duplicates
+		var values = {};
         collection.find({}).toArray(function (err, result) {
             if (result.length) {
                 //	console.log('Found:', result);
             }
 
-            var values = {};
             result.forEach(function (o) {
                 //for now, check that the author field is not empty
-                //TODO: delete this entity!
-                if (o.authors == null || o.identifier == 'domi123') {
+                if (o.authors == null || o.authors.length==0) {
                     return;
                 }
                 var l = values[o.name];
@@ -73,10 +84,10 @@ MongoClient.connect(url, function (err, db) {
                 }
                 values[o.name] = l;
             });
-            //           console.log('Found:', values);
 
+			//create a map containing duplicates with the name of the entities as key and the entities itself as values
+			//it iterates thourgh all the entries of the values map and filters out those that are no duplicates
             var duplicates = {};
-
             for (var key in values) {
                 var possibleDedup = values[key];
                 for (var i = 0; i < possibleDedup.length; i++) {
@@ -139,40 +150,56 @@ MongoClient.connect(url, function (err, db) {
                     }
                 }
             }
-
+			
+			//iterate through the entities that are determined as duplicates
             for (var keyToDedup in duplicates) {
                 console.log('key: ', keyToDedup);
                 console.log('values: ', duplicates[keyToDedup]);
-                collection.insert( {
-                    //TODO: hwo to ensure that further entities can be added to the group? 
-                    //if we modify the name, it will currently not been found
-                    "name" : keyToDedup + "_" + duplicates[keyToDedup][0].authors + "_dedup" ,
-                    "authors" : duplicates[keyToDedup][0].authors,
-                    "identifier" : "domi1234"                    
+				//generate an artificial entity which serves as the deduplicated entitiy
+				var name = keyToDedup + "_" + duplicates[keyToDedup][0].authors + "_dedup";
+				//TODO: add all the attributes we have for entities
+			    var duplicatedEntity = {name:""+name+"",authors:""+duplicates[keyToDedup][0].authors+"",identifier:"domi987"}
+			    console.log("duplciatedEnt: " + duplicatedEntity.name);
+				
+				//insert the artificial entitiy 
+				//TODO: not working but inserting worked at some point of time... also tries with insert etc.
+                collection.insertOne(duplicatedEntity, function(err, records) {
+                     console.log("Record added as " + records[0]._id);
                 });
-                //TODO: delete all single entities that are duplicates
-                collection.remove( {             
-                    _id: "5751635262a809e313539bf9"               
-                });
+				
+				
+				//iterate through all entities that are going to be deleted because they can be deduplicated
+				for(var entitiesToDelete in duplicates[keyToDedup]) {
+					console.log("entity to deduplicate: " + duplicates[keyToDedup][entitiesToDelete]._id);
+					//iterate through all links that have a deduplication entity in their fromEntity attribute
+					//update the link in the database by replace the fromEntity with the artificial entity
+					for(var fromEntity in links) {
+						//build the full ID to compare with the ID coming from the fromEntity of the link
+						var fullID = "http://infolis.gesis.org/infolink/api/entity/"+duplicates[keyToDedup][entitiesToDelete]._id;
+						//check whether the entity is a fromEntity of an entity link 
+						//TODO: actually replace it, currently not done because the artifical entities are not in the database
+						//and the existing links should not be overwritten (jsut testing the update functionality)
+						if(fromEntity == fullID) {
+								for(var singleLink in links[fromEntity]) {
+									console.log("link to update " +links[fromEntity][singleLink]._id);
+									collectionLinks.update(
+										{ '_id' : "f2f48b30-5e0c-11e6-9a36-8b1194111ba4" }, 
+										{ $set: { 'fromEntity':  "567"} },
+										function (err, result) {
+											console.log(result);
+										});
+								}
+						}
+					}
+					//TODO: delete all single entities that are duplicates
+					//collection.remove( {             
+						//_id: "5751635262a809e313539bf9"               
+					//});
+				}
             }
-
-            //Close connection
-      //      insertDocument(db, function () {
-                db.close();
-   //         });
-
+		db.close();
         });
+	});
+	
     }
 });
-
-var insertDocument = function (db, callback) {
-    db.collection('entities').insertOne({
-        "name": "test",
-        "authors": ["autor 1"],
-        "identifier": "domi123"
-    }, function (err, result) {
-        assert.equal(err, null);
-        console.log("Inserted a document into the restaurants collection.");
-        callback();
-    });
-};
