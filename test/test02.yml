@@ -1,0 +1,4 @@
+links:
+  entity123:
+    - _id: 'link123'
+    - _id: 'link234'

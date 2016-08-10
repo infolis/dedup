@@ -1,0 +1,5 @@
+entity:
+  - name: "Is procrastinating this and that"
+    authors: ['John Doe']
+  - name: "Is procrastinating this and that"
+    authors: ['Doe, John']
